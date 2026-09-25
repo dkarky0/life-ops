@@ -22,24 +22,32 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const today = await fetch("/api/today");
-      if (today.ok) {
+      try {
+        const today = await fetch("/api/today");
+        if (today.ok) {
+          if (!cancelled) {
+            setNeedsLogin(false);
+            setReady(true);
+          }
+          return;
+        }
+        const auth = await fetch("/api/auth");
+        const data = await auth.json();
         if (!cancelled) {
-          setNeedsLogin(false);
+          const list: PublicMember[] = data.members || [];
+          setMembers(list);
+          const preferred =
+            list.find((m) => m.role === "you")?.id || list[0]?.id || "";
+          setMemberId(preferred);
+          setNeedsLogin(true);
           setReady(true);
         }
-        return;
-      }
-      const auth = await fetch("/api/auth");
-      const data = await auth.json();
-      if (!cancelled) {
-        const list: PublicMember[] = data.members || [];
-        setMembers(list);
-        const preferred =
-          list.find((m) => m.role === "you")?.id || list[0]?.id || "";
-        setMemberId(preferred);
-        setNeedsLogin(true);
-        setReady(true);
+      } catch {
+        if (!cancelled) {
+          setError("Could not reach Life Ops server.");
+          setNeedsLogin(true);
+          setReady(true);
+        }
       }
     })();
     return () => {
@@ -47,26 +55,39 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  async function login(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    const form = new FormData(e.currentTarget);
-    const selectedId = String(form.get("memberId") || memberId);
-    const enteredPin = String(form.get("pin") || pin);
-    const res = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ memberId: selectedId, pin: enteredPin }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || "Login failed");
+  async function doLogin() {
+    if (loading) return;
+    const selectedId = memberId;
+    const enteredPin = pin.trim();
+    if (!selectedId) {
+      setError("Pick who you are.");
       return;
     }
-    setNeedsLogin(false);
-    router.refresh();
+    if (!enteredPin) {
+      setError("Enter your PIN.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: selectedId, pin: enteredPin }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Login failed");
+        setLoading(false);
+        return;
+      }
+      setNeedsLogin(false);
+      setLoading(false);
+      router.refresh();
+    } catch {
+      setError("Network error during login.");
+      setLoading(false);
+    }
   }
 
   if (!ready) {
@@ -89,12 +110,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <p style={{ color: "var(--muted)", marginTop: 0 }}>
           Shared household assistant. Pick who you are and enter your PIN.
         </p>
-        <form
-          onSubmit={login}
-          style={{ display: "grid", gap: "0.75rem", marginTop: "1.5rem" }}
-        >
+        <div style={{ display: "grid", gap: "0.75rem", marginTop: "1.5rem" }}>
           <span className="pill-muted">Member</span>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
+          >
             {members.map((m) => (
               <button
                 key={m.id}
@@ -109,33 +129,37 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               </button>
             ))}
           </div>
-          <input type="hidden" name="memberId" value={memberId} />
           <label style={{ display: "grid", gap: "0.35rem" }}>
             <span className="pill-muted">PIN</span>
             <input
               className="field"
-              name="pin"
               type="password"
               inputMode="numeric"
               autoComplete="current-password"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void doLogin();
+                }
+              }}
               placeholder="••••"
-              required
             />
           </label>
           {error ? <p className="overdue">{error}</p> : null}
           <button
             className="btn"
-            type="submit"
+            type="button"
             disabled={loading || !memberId}
+            onClick={() => void doLogin()}
           >
             {loading ? "Signing in…" : "Enter household"}
           </button>
           <p className="pill-muted">
             Default demo PINs: You 1234 · Partner 5678
           </p>
-        </form>
+        </div>
       </div>
     );
   }
