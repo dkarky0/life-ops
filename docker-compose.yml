@@ -1,0 +1,23 @@
+services:
+  lifeops:
+    build: .
+    container_name: lifeops
+    ports:
+      - "43127:43127"
+    environment:
+      LIFEOPS_DATA_DIR: /data
+      LIFEOPS_API_KEY: ${LIFEOPS_API_KEY:-}
+      LIFEOPS_LLM_BASE_URL: ${LIFEOPS_LLM_BASE_URL:-https://api.openai.com/v1}
+      LIFEOPS_LLM_MODEL: ${LIFEOPS_LLM_MODEL:-gpt-4o-mini}
+      LIFEOPS_MEMBER1_NAME: ${LIFEOPS_MEMBER1_NAME:-You}
+      LIFEOPS_MEMBER1_PIN: ${LIFEOPS_MEMBER1_PIN:-1234}
+      LIFEOPS_MEMBER2_NAME: ${LIFEOPS_MEMBER2_NAME:-Partner}
+      LIFEOPS_MEMBER2_PIN: ${LIFEOPS_MEMBER2_PIN:-5678}
+      PORT: 43127
+      HOSTNAME: 0.0.0.0
+    volumes:
+      - lifeops-data:/data
+    restart: unless-stopped
+
+volumes:
+  lifeops-data:
