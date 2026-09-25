@@ -405,7 +405,9 @@ export function logActivity(
 export function getMembers() {
   const db = getDb();
   return db
-    .prepare("SELECT * FROM members ORDER BY role ASC")
+    .prepare(
+      `SELECT * FROM members ORDER BY CASE role WHEN 'you' THEN 0 ELSE 1 END, display_name ASC`,
+    )
     .all()
     .map((r) => rowToMember(r as Record<string, unknown>));
 }

@@ -33,8 +33,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       const auth = await fetch("/api/auth");
       const data = await auth.json();
       if (!cancelled) {
-        setMembers(data.members || []);
-        setMemberId(data.members?.[0]?.id || "");
+        const list: PublicMember[] = data.members || [];
+        setMembers(list);
+        const preferred =
+          list.find((m) => m.role === "you")?.id || list[0]?.id || "";
+        setMemberId(preferred);
         setNeedsLogin(true);
         setReady(true);
       }
@@ -44,14 +47,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  async function login(e: React.FormEvent) {
+  async function login(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    const form = new FormData(e.currentTarget);
+    const selectedId = String(form.get("memberId") || memberId);
+    const enteredPin = String(form.get("pin") || pin);
     const res = await fetch("/api/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ memberId, pin }),
+      body: JSON.stringify({ memberId: selectedId, pin: enteredPin }),
     });
     const data = await res.json();
     setLoading(false);
@@ -74,33 +80,44 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (needsLogin) {
     return (
       <div className="app-shell">
-        <p className="brand" style={{ fontSize: "2rem", margin: "2rem 0 0.35rem" }}>
+        <p
+          className="brand"
+          style={{ fontSize: "2rem", margin: "2rem 0 0.35rem" }}
+        >
           Life Ops
         </p>
         <p style={{ color: "var(--muted)", marginTop: 0 }}>
           Shared household assistant. Pick who you are and enter your PIN.
         </p>
-        <form onSubmit={login} style={{ display: "grid", gap: "0.75rem", marginTop: "1.5rem" }}>
-          <label style={{ display: "grid", gap: "0.35rem" }}>
-            <span className="pill-muted">Member</span>
-            <select
-              className="field"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-            >
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
+        <form
+          onSubmit={login}
+          style={{ display: "grid", gap: "0.75rem", marginTop: "1.5rem" }}
+        >
+          <span className="pill-muted">Member</span>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {members.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                className={memberId === m.id ? "btn" : "btn btn-ghost"}
+                onClick={() => {
+                  setMemberId(m.id);
+                  setError("");
+                }}
+              >
+                {m.displayName}
+              </button>
+            ))}
+          </div>
+          <input type="hidden" name="memberId" value={memberId} />
           <label style={{ display: "grid", gap: "0.35rem" }}>
             <span className="pill-muted">PIN</span>
             <input
               className="field"
+              name="pin"
               type="password"
               inputMode="numeric"
+              autoComplete="current-password"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               placeholder="••••"
@@ -108,7 +125,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             />
           </label>
           {error ? <p className="overdue">{error}</p> : null}
-          <button className="btn" type="submit" disabled={loading}>
+          <button
+            className="btn"
+            type="submit"
+            disabled={loading || !memberId}
+          >
             {loading ? "Signing in…" : "Enter household"}
           </button>
           <p className="pill-muted">
