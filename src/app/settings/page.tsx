@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AppFrame } from "@/components/app-frame";
+import { apiFetch, setStoredToken } from "@/lib/client-api";
 
 const PRESETS = [
   {
@@ -44,7 +45,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/settings", { credentials: "include" });
+      const res = await apiFetch("/api/settings", { credentials: "include" });
       const data = await res.json();
       setHasApiKey(Boolean(data.hasApiKey));
       if (data.baseUrl) setBaseUrl(data.baseUrl);
@@ -78,7 +79,7 @@ export default function SettingsPage() {
 
   async function saveLlm(e: React.FormEvent) {
     e.preventDefault();
-    await fetch("/api/settings", {
+    await apiFetch("/api/settings", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -95,7 +96,7 @@ export default function SettingsPage() {
   }
 
   async function backup() {
-    const res = await fetch("/api/settings", {
+    const res = await apiFetch("/api/settings", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -114,12 +115,13 @@ export default function SettingsPage() {
   }
 
   async function logout() {
-    await fetch("/api/auth", {
+    await apiFetch("/api/auth", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "logout" }),
     });
+    setStoredToken(null);
     window.location.href = "/";
   }
 

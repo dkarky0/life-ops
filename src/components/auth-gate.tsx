@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { apiFetch, setStoredToken } from "@/lib/client-api";
 
 type PublicMember = {
   id: string;
@@ -33,7 +34,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const today = await fetch("/api/today", { credentials: "include" });
+        const today = await apiFetch("/api/today");
         if (today.ok) {
           if (!cancelled) {
             setNeedsLogin(false);
@@ -41,7 +42,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           }
           return;
         }
-        const auth = await fetch("/api/auth", { credentials: "include" });
+        const auth = await apiFetch("/api/auth");
         const data = await auth.json();
         if (!cancelled) {
           const list: PublicMember[] = data.members || [];
@@ -80,9 +81,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/auth", {
+      const res = await apiFetch("/api/auth", {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memberId: selectedId, pin: enteredPin }),
       });
@@ -92,7 +92,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return;
       }
-      // Full reload keeps you on the page you opened (e.g. /capture, /trackers)
+      if (data.token) {
+        setStoredToken(String(data.token));
+      }
+      // Reload same URL; token in localStorage keeps the session even if cookies fail
       window.location.replace(continuePath(pathname, search));
     } catch {
       setError("Network error during login.");

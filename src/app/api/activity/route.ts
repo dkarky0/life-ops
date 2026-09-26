@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getSessionMember } from "@/lib/auth";
+import { getSessionMemberFromRequest } from "@/lib/auth";
 import { getDb, getMembers, rowToActivity } from "@/lib/db";
 
-export async function GET() {
-  const member = await getSessionMember();
+export async function GET(req: Request) {
+  const member = await getSessionMemberFromRequest(req);
   if (!member) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AppFrame } from "@/components/app-frame";
+import { apiFetch } from "@/lib/client-api";
 
 type Row = {
   id: string;
@@ -15,7 +16,7 @@ export default function ActivityPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/activity");
+      const res = await apiFetch("/api/activity");
       const data = await res.json();
       setActivity(data.activity || []);
     })();

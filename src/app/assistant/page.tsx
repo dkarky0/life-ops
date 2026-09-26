@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AppFrame } from "@/components/app-frame";
+import { apiFetch } from "@/lib/client-api";
 
 type Msg = {
   id: string;
@@ -20,7 +21,7 @@ export default function AssistantPage() {
   const endRef = useRef<HTMLDivElement>(null);
 
   async function load() {
-    const res = await fetch("/api/assistant");
+    const res = await apiFetch("/api/assistant");
     if (!res.ok) return;
     const data = await res.json();
     setMessages(data.messages || []);
@@ -40,7 +41,7 @@ export default function AssistantPage() {
     setBusy(true);
     setError("");
     setText("");
-    const res = await fetch("/api/assistant", {
+    const res = await apiFetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: trimmed }),
@@ -57,7 +58,7 @@ export default function AssistantPage() {
 
   async function confirm(proposal: Record<string, unknown>) {
     setBusy(true);
-    await fetch("/api/assistant", {
+    await apiFetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "confirm", proposal }),

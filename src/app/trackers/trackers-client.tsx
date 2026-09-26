@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { AppFrame } from "@/components/app-frame";
 import { formatINR, todayISO } from "@/lib/utils";
 import type { Tracker, TrackerCycle, TrackerSegment } from "@/lib/types";
+import { apiFetch } from "@/lib/client-api";
 
 type Detail = {
   tracker: Tracker;
@@ -45,7 +46,7 @@ export default function TrackersClient() {
   const [price, setPrice] = useState("");
 
   async function loadList() {
-    const res = await fetch("/api/trackers");
+    const res = await apiFetch("/api/trackers");
     const data = await res.json();
     setTrackers(data.trackers || []);
     if (!selectedId && data.trackers?.[0]) {
@@ -55,7 +56,7 @@ export default function TrackersClient() {
 
   async function loadDetail(id: string) {
     if (!id) return;
-    const res = await fetch(`/api/trackers?id=${id}`);
+    const res = await apiFetch(`/api/trackers?id=${id}`);
     const data = await res.json();
     setDetail(data);
     if (data.tracker?.defaultUnitPrice) {
@@ -78,7 +79,7 @@ export default function TrackersClient() {
   );
 
   async function install() {
-    await fetch("/api/trackers", {
+    await apiFetch("/api/trackers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -93,7 +94,7 @@ export default function TrackersClient() {
   }
 
   async function changeRate() {
-    await fetch("/api/trackers", {
+    await apiFetch("/api/trackers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

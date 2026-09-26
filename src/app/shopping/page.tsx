@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { AppFrame } from "@/components/app-frame";
 import type { Item, ShoppingLine } from "@/lib/types";
 import { nanoid } from "nanoid";
+import { apiFetch } from "@/lib/client-api";
 
 export default function ShoppingPage() {
   const [list, setList] = useState<Item | null>(null);
   const [text, setText] = useState("");
 
   async function load() {
-    const res = await fetch("/api/items?type=shopping&status=open");
+    const res = await apiFetch("/api/items?type=shopping&status=open");
     const data = await res.json();
     setList(data.items?.[0] || null);
   }
@@ -25,7 +26,7 @@ export default function ShoppingPage() {
 
   async function saveLines(next: ShoppingLine[]) {
     if (!list) {
-      await fetch("/api/items", {
+      await apiFetch("/api/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -35,7 +36,7 @@ export default function ShoppingPage() {
         }),
       });
     } else {
-      await fetch("/api/items", {
+      await apiFetch("/api/items", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

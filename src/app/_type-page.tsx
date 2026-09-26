@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AppFrame } from "@/components/app-frame";
 import { ItemRows } from "@/components/item-rows";
 import type { Item } from "@/lib/types";
+import { apiFetch } from "@/lib/client-api";
 
 export default function TypePage({
   type,
@@ -32,7 +33,7 @@ export default function TypePage({
   });
 
   async function load(query = q) {
-    const res = await fetch(
+    const res = await apiFetch(
       `/api/items?type=${type}&status=open&q=${encodeURIComponent(query)}`,
     );
     const data = await res.json();
@@ -45,7 +46,7 @@ export default function TypePage({
   }, [type]);
 
   async function act(action: string, id: string, days?: number) {
-    await fetch("/api/items", {
+    await apiFetch("/api/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, id, days }),
@@ -55,7 +56,7 @@ export default function TypePage({
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    await fetch("/api/items", {
+    await apiFetch("/api/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

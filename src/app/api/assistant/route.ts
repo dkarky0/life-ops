@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
-import { getSessionMember } from "@/lib/auth";
+import { getSessionMemberFromRequest } from "@/lib/auth";
 import { runAssistantChat } from "@/lib/ai";
 import { getDb, logActivity, rowToMessage } from "@/lib/db";
 import { createItem } from "@/lib/items";
 import { nanoid } from "nanoid";
 import type { ItemType } from "@/lib/types";
 
-export async function GET() {
-  const member = await getSessionMember();
+export async function GET(req: Request) {
+  const member = await getSessionMemberFromRequest(req);
   if (!member) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const db = getDb();
   const messages = db
-    .prepare(
-      `SELECT * FROM messages ORDER BY created_at DESC LIMIT 80`,
-    )
+    .prepare(`SELECT * FROM messages ORDER BY created_at DESC LIMIT 80`)
     .all()
     .map((r) => rowToMessage(r as Record<string, unknown>))
     .reverse();
@@ -23,7 +21,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const member = await getSessionMember();
+  const member = await getSessionMemberFromRequest(req);
   if (!member) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

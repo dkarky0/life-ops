@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getSessionMember } from "@/lib/auth";
+import { getSessionMemberFromRequest } from "@/lib/auth";
 import { resolveApiKey, resolveBaseUrl, resolveModel } from "@/lib/ai";
 import { getSetting, setSetting } from "@/lib/db";
 import { exportBackup } from "@/lib/items";
 
-export async function GET() {
-  const member = await getSessionMember();
+export async function GET(req: Request) {
+  const member = await getSessionMemberFromRequest(req);
   if (!member) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const member = await getSessionMember();
+  const member = await getSessionMemberFromRequest(req);
   if (!member) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionMember } from "@/lib/auth";
+import { getSessionMemberFromRequest } from "@/lib/auth";
 import {
   createTracker,
   listCycles,
@@ -12,7 +12,7 @@ import {
 } from "@/lib/items";
 
 export async function GET(req: Request) {
-  const member = await getSessionMember();
+  const member = await getSessionMemberFromRequest(req);
   if (!member) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -41,16 +41,13 @@ export async function GET(req: Request) {
   const trackers = listTrackers().map((t) => ({
     ...t,
     openCycle: t.kind === "cycle" ? openCycleStatus(t.id) : null,
-    month:
-      t.kind === "rate"
-        ? monthSummary(t.id, year, month)
-        : monthSummary(t.id, year, month),
+    month: monthSummary(t.id, year, month),
   }));
   return NextResponse.json({ trackers });
 }
 
 export async function POST(req: Request) {
-  const member = await getSessionMember();
+  const member = await getSessionMemberFromRequest(req);
   if (!member) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

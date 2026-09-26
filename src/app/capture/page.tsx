@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
+import { apiFetch } from "@/lib/client-api";
 
 export default function CapturePage() {
   const [text, setText] = useState("");
@@ -21,7 +22,7 @@ export default function CapturePage() {
     setError("");
     setResult("");
     setProposal(null);
-    const res = await fetch("/api/assistant", {
+    const res = await apiFetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -39,7 +40,7 @@ export default function CapturePage() {
   async function confirm() {
     if (!proposal) return;
     setBusy(true);
-    const res = await fetch("/api/assistant", {
+    const res = await apiFetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "confirm", proposal }),

@@ -6,6 +6,7 @@ import { AppFrame } from "@/components/app-frame";
 import { ItemRows } from "@/components/item-rows";
 import type { Item, Tracker, TrackerCycle } from "@/lib/types";
 import { formatINR } from "@/lib/utils";
+import { apiFetch } from "@/lib/client-api";
 
 type TodayData = {
   member: { displayName: string };
@@ -24,7 +25,7 @@ export default function TodayPage() {
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/today");
+    const res = await apiFetch("/api/today");
     if (!res.ok) {
       setError("Could not load Today");
       return;
@@ -37,7 +38,7 @@ export default function TodayPage() {
   }, [load]);
 
   async function act(action: string, id: string, days?: number) {
-    await fetch("/api/items", {
+    await apiFetch("/api/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, id, days }),

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionMember } from "@/lib/auth";
+import { getSessionMemberFromRequest } from "@/lib/auth";
 import {
   completeItem,
   createItem,
@@ -10,7 +10,7 @@ import {
 import type { ItemType } from "@/lib/types";
 
 export async function GET(req: Request) {
-  const member = await getSessionMember();
+  const member = await getSessionMemberFromRequest(req);
   if (!member) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const member = await getSessionMember();
+  const member = await getSessionMemberFromRequest(req);
   if (!member) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
