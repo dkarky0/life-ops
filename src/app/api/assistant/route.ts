@@ -6,6 +6,47 @@ import { createItem } from "@/lib/items";
 import { nanoid } from "nanoid";
 import type { ItemType } from "@/lib/types";
 
+type GeoBody = {
+  lat: number;
+  lng: number;
+  mapsUrl: string;
+  locationLabel: string;
+};
+
+function parseGeo(raw: unknown): GeoBody | null {
+  if (!raw || typeof raw !== "object") return null;
+  const g = raw as Record<string, unknown>;
+  const lat = Number(g.lat);
+  const lng = Number(g.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return {
+    lat,
+    lng,
+    mapsUrl:
+      String(g.mapsUrl || "") ||
+      `https://www.google.com/maps?q=${lat},${lng}`,
+    locationLabel:
+      String(g.locationLabel || "") ||
+      `Current location (${lat}, ${lng})`,
+  };
+}
+
+function enrichPlace(
+  proposal: Record<string, unknown>,
+  geo: GeoBody | null,
+) {
+  if (!geo || proposal.type !== "place") return proposal;
+  const next = { ...proposal };
+  if (!next.mapsUrl) next.mapsUrl = geo.mapsUrl;
+  if (!next.locationLabel) next.locationLabel = geo.locationLabel;
+  const notes = String(next.notes || "");
+  const pin = `GPS ${geo.lat},${geo.lng}`;
+  if (!notes.includes("GPS ")) {
+    next.notes = notes ? `${notes}\n${pin}` : pin;
+  }
+  return next;
+}
+
 export async function GET(req: Request) {
   const member = await getSessionMemberFromRequest(req);
   if (!member) {
@@ -27,9 +68,10 @@ export async function POST(req: Request) {
   }
   const body = await req.json();
   const db = getDb();
+  const geo = parseGeo(body.geo);
 
   if (body.action === "confirm" && body.proposal) {
-    const p = body.proposal;
+    const p = enrichPlace({ ...body.proposal }, geo);
     const item = createItem(
       {
         type: p.type as ItemType,
@@ -66,12 +108,18 @@ export async function POST(req: Request) {
     text,
     member.id,
     member.displayName,
+    geo,
   );
+
+  let proposal = result.proposal;
+  if (proposal) {
+    proposal = enrichPlace(proposal, geo);
+  }
 
   const content = result.ok
     ? result.content || ""
     : result.error || "Something went wrong";
-  const proposalJson = result.proposal ? JSON.stringify(result.proposal) : null;
+  const proposalJson = proposal ? JSON.stringify(proposal) : null;
 
   db.prepare(
     `INSERT INTO messages (id, member_id, role, content, proposal_json, created_at)
@@ -91,7 +139,8 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: result.ok,
     content,
-    proposal: result.proposal,
+    proposal,
     error: result.error,
+    geoAttached: Boolean(geo),
   });
 }

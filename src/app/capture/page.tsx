@@ -1,9 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
 import { apiFetch } from "@/lib/client-api";
+import { getDeviceLocation, type DeviceGeo } from "@/lib/geo";
+
+async function readGeoQuiet(): Promise<DeviceGeo | null> {
+  try {
+    return await getDeviceLocation();
+  } catch {
+    return null;
+  }
+}
 
 export default function CapturePage() {
   const [text, setText] = useState("");
@@ -14,6 +23,8 @@ export default function CapturePage() {
   );
   const [error, setError] = useState("");
   const [listening, setListening] = useState(false);
+  const [geoHint, setGeoHint] = useState("");
+  const lastGeo = useRef<DeviceGeo | null>(null);
 
   async function send(value = text) {
     const trimmed = value.trim();
@@ -22,11 +33,20 @@ export default function CapturePage() {
     setError("");
     setResult("");
     setProposal(null);
+    setGeoHint("Getting location…");
+    const geo = await readGeoQuiet();
+    lastGeo.current = geo;
+    setGeoHint(
+      geo
+        ? `Location attached · ${geo.locationLabel}`
+        : "No GPS — allow location for map pins on places",
+    );
     const res = await apiFetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: `Quick capture — file this appropriately (propose before inventing): ${trimmed}`,
+        geo,
       }),
     });
     const data = await res.json();
@@ -40,10 +60,14 @@ export default function CapturePage() {
   async function confirm() {
     if (!proposal) return;
     setBusy(true);
+    let geo = lastGeo.current;
+    if (proposal.type === "place" && !geo) {
+      geo = await readGeoQuiet();
+    }
     const res = await apiFetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "confirm", proposal }),
+      body: JSON.stringify({ action: "confirm", proposal, geo }),
     });
     const data = await res.json();
     setBusy(false);
@@ -87,8 +111,14 @@ export default function CapturePage() {
         </Link>
       </div>
       <p className="pill-muted">
-        Pin this page to your Android home screen for one-tap capture.
+        Pin this page to your Android home screen for one-tap capture. Places
+        auto-attach GPS + Maps link when location is allowed.
       </p>
+      {geoHint ? (
+        <p className="pill-muted" style={{ marginTop: 8 }}>
+          {geoHint}
+        </p>
+      ) : null}
 
       <textarea
         className="field"

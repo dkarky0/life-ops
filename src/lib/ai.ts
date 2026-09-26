@@ -316,6 +316,12 @@ export async function runAssistantChat(
   userText: string,
   memberId: string,
   memberName: string,
+  geo?: {
+    lat: number;
+    lng: number;
+    mapsUrl: string;
+    locationLabel: string;
+  } | null,
 ) {
   const apiKey = resolveApiKey();
   if (!apiKey) {
@@ -328,6 +334,14 @@ export async function runAssistantChat(
     };
   }
 
+  const geoBlock = geo
+    ? `Device GPS is available right now:
+- lat/lng: ${geo.lat}, ${geo.lng}
+- mapsUrl: ${geo.mapsUrl}
+- locationLabel: ${geo.locationLabel}
+When proposing or creating a place, ALWAYS set mapsUrl to that mapsUrl and locationLabel to that locationLabel (or a short place name + that label). Never invent coordinates.`
+    : `No device GPS was provided. For places, still propose title/notes; mapsUrl may be filled later.`;
+
   const messages: Array<Record<string, unknown>> = [
     {
       role: "system",
@@ -335,7 +349,8 @@ export async function runAssistantChat(
 Member speaking: ${memberName}. Today is ${todayISO()}.
 Use tools for facts. Never invent bills, places, or quantities.
 For new saves prefer propose_item so the user can confirm, unless they clearly said "save it" / "confirm".
-Be concise. Currency is INR. Speak practically about gas cylinder, milk liters, school van, parents' medicine.`,
+Be concise. Currency is INR. Speak practically about gas cylinder, milk liters, school van, parents' medicine.
+${geoBlock}`,
     },
     { role: "user", content: userText },
   ];
@@ -402,6 +417,15 @@ Be concise. Currency is INR. Speak practically about gas cylinder, milk liters, 
         } catch {
           args = {};
         }
+        if (
+          (call.function.name === "propose_item" ||
+            call.function.name === "create_item") &&
+          args.type === "place" &&
+          geo
+        ) {
+          if (!args.mapsUrl) args.mapsUrl = geo.mapsUrl;
+          if (!args.locationLabel) args.locationLabel = geo.locationLabel;
+        }
         const result = await runTool(call.function.name, args, memberId);
         if (
           call.function.name === "propose_item" &&
@@ -410,6 +434,12 @@ Be concise. Currency is INR. Speak practically about gas cylinder, milk liters, 
           "proposal" in (result as object)
         ) {
           proposal = (result as { proposal: Record<string, unknown> }).proposal;
+          if (proposal?.type === "place" && geo) {
+            if (!proposal.mapsUrl) proposal.mapsUrl = geo.mapsUrl;
+            if (!proposal.locationLabel) {
+              proposal.locationLabel = geo.locationLabel;
+            }
+          }
         }
         messages.push({
           role: "tool",

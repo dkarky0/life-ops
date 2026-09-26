@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AppFrame } from "@/components/app-frame";
 import { apiFetch } from "@/lib/client-api";
+import { getDeviceLocation, type DeviceGeo } from "@/lib/geo";
 import { cancelSpeech, speakText } from "@/lib/speech";
 
 type Msg = {
@@ -13,13 +14,23 @@ type Msg = {
   memberId: string;
 };
 
+async function readGeoQuiet(): Promise<DeviceGeo | null> {
+  try {
+    return await getDeviceLocation();
+  } catch {
+    return null;
+  }
+}
+
 export default function AssistantPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [listening, setListening] = useState(false);
+  const [geoHint, setGeoHint] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
+  const lastGeo = useRef<DeviceGeo | null>(null);
 
   async function load() {
     const res = await apiFetch("/api/assistant");
@@ -46,10 +57,18 @@ export default function AssistantPage() {
     setBusy(true);
     setError("");
     setText("");
+    setGeoHint("Getting location…");
+    const geo = await readGeoQuiet();
+    lastGeo.current = geo;
+    setGeoHint(
+      geo
+        ? `Location attached · ${geo.locationLabel}`
+        : "No GPS (place maps link may be empty)",
+    );
     const res = await apiFetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: trimmed }),
+      body: JSON.stringify({ text: trimmed, geo }),
     });
     const data = await res.json();
     if (!data.ok && data.error) setError(data.error);
@@ -62,10 +81,14 @@ export default function AssistantPage() {
 
   async function confirm(proposal: Record<string, unknown>) {
     setBusy(true);
+    let geo = lastGeo.current;
+    if (proposal.type === "place" && !geo) {
+      geo = await readGeoQuiet();
+    }
     await apiFetch("/api/assistant", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "confirm", proposal }),
+      body: JSON.stringify({ action: "confirm", proposal, geo }),
     });
     await load();
     setBusy(false);
@@ -118,6 +141,11 @@ export default function AssistantPage() {
           Stop voice
         </button>
       </div>
+      {geoHint ? (
+        <p className="pill-muted" style={{ marginTop: 8 }}>
+          {geoHint}
+        </p>
+      ) : null}
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
         {chips.map((c) => (
