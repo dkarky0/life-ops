@@ -1,32 +1,86 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { AppFrame } from "@/components/app-frame";
 
+const PRESETS = [
+  {
+    id: "openai",
+    label: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    hint: "Key from platform.openai.com",
+  },
+  {
+    id: "gemini",
+    label: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    model: "gemini-2.0-flash",
+    hint: "Key from Google AI Studio (aistudio.google.com)",
+  },
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    model: "google/gemini-2.0-flash-001",
+    hint: "One key for many models including Gemini",
+  },
+  {
+    id: "custom",
+    label: "Custom / local",
+    baseUrl: "http://127.0.0.1:11434/v1",
+    model: "llama3.2",
+    hint: "Any OpenAI-compatible server (Ollama, LiteLLM, etc.)",
+  },
+] as const;
+
 export default function SettingsPage() {
-  const router = useRouter();
   const [hasApiKey, setHasApiKey] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("https://api.openai.com/v1");
   const [model, setModel] = useState("gpt-4o-mini");
   const [saved, setSaved] = useState("");
+  const [preset, setPreset] = useState("openai");
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/settings");
+      const res = await fetch("/api/settings", { credentials: "include" });
       const data = await res.json();
       setHasApiKey(Boolean(data.hasApiKey));
-      setBaseUrl(data.baseUrl || baseUrl);
-      setModel(data.model || model);
+      if (data.baseUrl) setBaseUrl(data.baseUrl);
+      if (data.model) setModel(data.model);
+      const match = PRESETS.find((p) =>
+        String(data.baseUrl || "").includes(
+          p.baseUrl.replace(/\/$/, "").split("/").slice(2, 3)[0] || "___",
+        ),
+      );
+      if (data.baseUrl?.includes("generativelanguage.googleapis.com")) {
+        setPreset("gemini");
+      } else if (data.baseUrl?.includes("openrouter.ai")) {
+        setPreset("openrouter");
+      } else if (data.baseUrl?.includes("api.openai.com")) {
+        setPreset("openai");
+      } else if (data.baseUrl) {
+        setPreset("custom");
+      }
+      void match;
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function applyPreset(id: string) {
+    const p = PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    setPreset(id);
+    setBaseUrl(p.baseUrl);
+    setModel(p.model);
+    setSaved("");
+  }
 
   async function saveLlm(e: React.FormEvent) {
     e.preventDefault();
     await fetch("/api/settings", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "save_llm",
@@ -36,13 +90,14 @@ export default function SettingsPage() {
       }),
     });
     setSaved("Saved.");
-    setHasApiKey(true);
+    if (apiKey.trim()) setHasApiKey(true);
     setApiKey("");
   }
 
   async function backup() {
     const res = await fetch("/api/settings", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "backup" }),
     });
@@ -61,12 +116,14 @@ export default function SettingsPage() {
   async function logout() {
     await fetch("/api/auth", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "logout" }),
     });
-    router.refresh();
     window.location.href = "/";
   }
+
+  const active = PRESETS.find((p) => p.id === preset);
 
   return (
     <AppFrame>
@@ -77,15 +134,56 @@ export default function SettingsPage() {
         AI key {hasApiKey ? "configured" : "missing"} · backup · logout
       </p>
 
+      <p className="section-label">AI provider</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {PRESETS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            className={preset === p.id ? "btn" : "btn btn-ghost"}
+            style={{ padding: "0.45rem 0.7rem", fontSize: "0.85rem" }}
+            onClick={() => applyPreset(p.id)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {active ? (
+        <p className="pill-muted" style={{ marginTop: 8 }}>
+          {active.hint}
+        </p>
+      ) : null}
+
+      <p
+        className="pill-muted"
+        style={{
+          marginTop: 12,
+          padding: "0.75rem",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          background: "var(--bg-elevated)",
+        }}
+      >
+        Cursor does not offer a public chat API you can plug in here. Use{" "}
+        <strong>Gemini</strong>, OpenAI, OpenRouter, or any OpenAI-compatible
+        endpoint instead.
+      </p>
+
       <form
         onSubmit={saveLlm}
         style={{ display: "grid", gap: 8, marginTop: 16 }}
       >
-        <label className="pill-muted">OpenAI-compatible API key</label>
+        <label className="pill-muted">API key</label>
         <input
           className="field"
           type="password"
-          placeholder={hasApiKey ? "•••••••• (leave blank to keep)" : "sk-…"}
+          placeholder={
+            hasApiKey
+              ? "•••••••• (leave blank to keep)"
+              : preset === "gemini"
+                ? "Google AI Studio key"
+                : "sk-…"
+          }
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
         />
@@ -93,7 +191,10 @@ export default function SettingsPage() {
         <input
           className="field"
           value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
+          onChange={(e) => {
+            setBaseUrl(e.target.value);
+            setPreset("custom");
+          }}
         />
         <label className="pill-muted">Model</label>
         <input
@@ -119,7 +220,9 @@ export default function SettingsPage() {
       <p className="section-label">Home Assistant</p>
       <p className="pill-muted">
         Run with Docker, proxy under your HA URL, install the PWA on both phones,
-        and add a home-screen shortcut to /capture.
+        and add a home-screen shortcut to /capture. On HTTPS (Nabu Casa) cookies
+        stay secure automatically; on plain HTTP LAN set{" "}
+        <code>LIFEOPS_COOKIE_SECURE=false</code>.
       </p>
     </AppFrame>
   );

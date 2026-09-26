@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { BottomNav } from "@/components/bottom-nav";
 
@@ -11,9 +12,17 @@ export function AppFrame({
   hideNav?: boolean;
 }) {
   return (
-    <AuthGate>
-      <div className="app-shell">{children}</div>
-      {hideNav ? null : <BottomNav />}
-    </AuthGate>
+    <Suspense
+      fallback={
+        <div className="app-shell">
+          <p className="empty">Loading Life Ops…</p>
+        </div>
+      }
+    >
+      <AuthGate>
+        <div className="app-shell">{children}</div>
+        {hideNav ? null : <BottomNav />}
+      </AuthGate>
+    </Suspense>
   );
 }

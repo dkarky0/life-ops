@@ -5,6 +5,20 @@ import type { Member } from "./types";
 
 const COOKIE = "lifeops_member";
 
+function cookieOptions(maxAge: number) {
+  const secure =
+    process.env.LIFEOPS_COOKIE_SECURE === "true" ||
+    process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge,
+    // Set LIFEOPS_COOKIE_SECURE=false on plain HTTP LAN if needed
+    secure: process.env.LIFEOPS_COOKIE_SECURE === "false" ? false : secure,
+  };
+}
+
 export async function getSessionMember(): Promise<Member | null> {
   const jar = await cookies();
   const id = jar.get(COOKIE)?.value;
@@ -26,18 +40,20 @@ export async function loginWithPin(memberId: string, pin: string) {
   const valid = await bcrypt.compare(pin, member.pinHash);
   if (!valid) return { ok: false as const, error: "Wrong PIN" };
   const jar = await cookies();
-  jar.set(COOKIE, member.id, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 180,
-  });
-  return { ok: true as const, member: { id: member.id, displayName: member.displayName, role: member.role } };
+  jar.set(COOKIE, member.id, cookieOptions(60 * 60 * 24 * 180));
+  return {
+    ok: true as const,
+    member: {
+      id: member.id,
+      displayName: member.displayName,
+      role: member.role,
+    },
+  };
 }
 
 export async function logout() {
   const jar = await cookies();
-  jar.delete(COOKIE);
+  jar.set(COOKIE, "", cookieOptions(0));
 }
 
 export function listPublicMembers() {

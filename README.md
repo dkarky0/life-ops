@@ -31,16 +31,23 @@ Demo logins (seeded on first run):
 | You     | 1234 |
 | Partner | 5678 |
 
-Optional AI (chat/voice filing):
+Optional AI (chat/voice filing) — OpenAI-compatible providers only:
 
 ```bash
+# OpenAI
 export LIFEOPS_API_KEY=sk-...
-# optional
 export LIFEOPS_LLM_BASE_URL=https://api.openai.com/v1
 export LIFEOPS_LLM_MODEL=gpt-4o-mini
+
+# Google Gemini (OpenAI-compatible endpoint)
+export LIFEOPS_API_KEY=your-google-ai-studio-key
+export LIFEOPS_LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+export LIFEOPS_LLM_MODEL=gemini-2.0-flash
 ```
 
-Or paste the key in **Settings** after login.
+Or pick **OpenAI / Gemini / OpenRouter / Custom** in **Settings** after login.
+
+**Cursor API:** not supported — Cursor does not expose a public chat-completions API for apps like this.
 
 ## Docker (Home Assistant host)
 

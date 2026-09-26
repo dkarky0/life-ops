@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 type PublicMember = {
   id: string;
@@ -9,8 +9,18 @@ type PublicMember = {
   role: string;
 };
 
+function continuePath(pathname: string, search: string) {
+  const path = `${pathname}${search || ""}`;
+  if (!path || path === "/") return "/";
+  return path;
+}
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
+  const pathname = usePathname() || "/";
+  const searchParams = useSearchParams();
+  const search = searchParams?.toString()
+    ? `?${searchParams.toString()}`
+    : "";
   const [ready, setReady] = useState(false);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [members, setMembers] = useState<PublicMember[]>([]);
@@ -23,7 +33,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const today = await fetch("/api/today");
+        const today = await fetch("/api/today", { credentials: "include" });
         if (today.ok) {
           if (!cancelled) {
             setNeedsLogin(false);
@@ -31,7 +41,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           }
           return;
         }
-        const auth = await fetch("/api/auth");
+        const auth = await fetch("/api/auth", { credentials: "include" });
         const data = await auth.json();
         if (!cancelled) {
           const list: PublicMember[] = data.members || [];
@@ -72,6 +82,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch("/api/auth", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memberId: selectedId, pin: enteredPin }),
       });
@@ -81,9 +92,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return;
       }
-      setNeedsLogin(false);
-      setLoading(false);
-      router.refresh();
+      // Full reload keeps you on the page you opened (e.g. /capture, /trackers)
+      window.location.replace(continuePath(pathname, search));
     } catch {
       setError("Network error during login.");
       setLoading(false);
@@ -99,6 +109,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (needsLogin) {
+    const dest = continuePath(pathname, search);
     return (
       <div className="app-shell">
         <p
@@ -110,6 +121,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <p style={{ color: "var(--muted)", marginTop: 0 }}>
           Shared household assistant. Pick who you are and enter your PIN.
         </p>
+        {dest !== "/" ? (
+          <p className="pill-muted" style={{ marginTop: 8 }}>
+            After login you’ll continue to <strong>{dest}</strong>
+          </p>
+        ) : null}
         <div style={{ display: "grid", gap: "0.75rem", marginTop: "1.5rem" }}>
           <span className="pill-muted">Member</span>
           <div
