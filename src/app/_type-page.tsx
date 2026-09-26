@@ -5,6 +5,7 @@ import { AppFrame } from "@/components/app-frame";
 import { ItemRows } from "@/components/item-rows";
 import type { Item } from "@/lib/types";
 import { apiFetch } from "@/lib/client-api";
+import { getDeviceLocation } from "@/lib/geo";
 
 export default function TypePage({
   type,
@@ -22,6 +23,7 @@ export default function TypePage({
   const [items, setItems] = useState<Item[]>([]);
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [geoStatus, setGeoStatus] = useState("");
   const [form, setForm] = useState({
     title: "",
     notes: "",
@@ -44,6 +46,34 @@ export default function TypePage({
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
+
+  async function fillLocation() {
+    if (type !== "place") return;
+    setGeoStatus("Fetching current location…");
+    try {
+      const geo = await getDeviceLocation();
+      setForm((prev) => ({
+        ...prev,
+        locationLabel: prev.locationLabel || geo.locationLabel,
+        mapsUrl: geo.mapsUrl,
+        notes: prev.notes.includes("GPS ")
+          ? prev.notes
+          : prev.notes
+            ? `${prev.notes}\nGPS ${geo.lat},${geo.lng}`
+            : `GPS ${geo.lat},${geo.lng}`,
+      }));
+      setGeoStatus(`Located · ${geo.locationLabel}`);
+    } catch (e) {
+      setGeoStatus(e instanceof Error ? e.message : "Location failed");
+    }
+  }
+
+  useEffect(() => {
+    if (showForm && type === "place") {
+      void fillLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, type]);
 
   async function act(action: string, id: string, days?: number) {
     await apiFetch("/api/items", {
@@ -73,6 +103,7 @@ export default function TypePage({
       }),
     });
     setShowForm(false);
+    setGeoStatus("");
     setForm({
       title: "",
       notes: "",
@@ -131,6 +162,14 @@ export default function TypePage({
           />
           {type === "place" ? (
             <>
+              <button
+                className="btn btn-soft"
+                type="button"
+                onClick={() => void fillLocation()}
+              >
+                Use my location
+              </button>
+              {geoStatus ? <p className="pill-muted">{geoStatus}</p> : null}
               <input
                 className="field"
                 placeholder="Area / landmark"
@@ -141,7 +180,7 @@ export default function TypePage({
               />
               <input
                 className="field"
-                placeholder="Maps URL"
+                placeholder="Maps URL (auto-filled from GPS)"
                 value={form.mapsUrl}
                 onChange={(e) => setForm({ ...form, mapsUrl: e.target.value })}
               />
