@@ -210,6 +210,160 @@ export function appendShoppingLine(text: string, memberId: string) {
   );
 }
 
+function normalizeTitle(s: string) {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Add shopping line, or toggle done if the same text already exists. */
+export function upsertShoppingLine(
+  text: string,
+  memberId: string,
+  opts?: { toggleIfExists?: boolean },
+) {
+  const toggleIfExists = opts?.toggleIfExists !== false;
+  const cleaned = text.trim();
+  if (!cleaned) throw new Error("Empty shopping text");
+
+  const lists = listItems({ type: "shopping", status: "open" });
+  let list = lists[0];
+  if (!list) {
+    list = createItem(
+      {
+        type: "shopping",
+        title: "Grocery list",
+        shoppingLines: "[]",
+      },
+      memberId,
+    );
+  }
+  const lines: ShoppingLine[] = JSON.parse(list.shoppingLines || "[]");
+  const needle = normalizeTitle(cleaned);
+  const existing = lines.find((l) => normalizeTitle(l.text) === needle);
+  if (existing && toggleIfExists) {
+    existing.done = !existing.done;
+    const updated = updateItem(
+      list.id,
+      { shoppingLines: JSON.stringify(lines) },
+      memberId,
+    );
+    return {
+      action: existing.done ? ("checked" as const) : ("unchecked" as const),
+      line: existing,
+      list: updated,
+    };
+  }
+  if (existing && !toggleIfExists) {
+    return { action: "exists" as const, line: existing, list };
+  }
+  const line: ShoppingLine = { id: nanoid(), text: cleaned, done: false };
+  lines.push(line);
+  const updated = updateItem(
+    list.id,
+    { shoppingLines: JSON.stringify(lines) },
+    memberId,
+  );
+  return { action: "added" as const, line, list: updated };
+}
+
+/** Create item, or complete existing open item with same type+title. */
+export function upsertRemindable(
+  input: {
+    type: ItemType;
+    title: string;
+    notes?: string;
+    dueAt?: string | null;
+    amount?: number | null;
+  },
+  memberId: string,
+) {
+  const title = input.title.trim();
+  const needle = normalizeTitle(title);
+  const open = listItems({ type: input.type, status: "open" }).find(
+    (i) => normalizeTitle(i.title) === needle,
+  );
+  if (open) {
+    const completed = completeItem(open.id, memberId);
+    return { action: "completed" as const, item: completed };
+  }
+  const item = createItem(
+    {
+      type: input.type,
+      title,
+      notes: input.notes || "",
+      dueAt: input.dueAt ?? todayISO(),
+      amount: input.amount ?? null,
+    },
+    memberId,
+  );
+  return { action: "created" as const, item };
+}
+
+export function syncFeed(since?: string | null) {
+  const db = getDb();
+  const open = listItems({ status: "open" }).filter(
+    (i) =>
+      i.dueAt ||
+      i.type === "shopping" ||
+      i.type === "task" ||
+      i.type === "care" ||
+      i.type === "payment" ||
+      i.type === "date",
+  );
+
+  let recentlyDone: Item[] = [];
+  if (since) {
+    recentlyDone = db
+      .prepare(
+        `SELECT * FROM items WHERE status = 'done' AND done_at IS NOT NULL AND done_at >= ? ORDER BY done_at DESC LIMIT 200`,
+      )
+      .all(since)
+      .map((r) => rowToItem(r as Record<string, unknown>));
+  }
+
+  const trackers = listTrackers()
+    .filter((t) => t.kind === "cycle")
+    .map((t) => {
+      const status = openCycleStatus(t.id);
+      return status
+        ? {
+            trackerId: t.id,
+            name: t.name,
+            dueAt: status.dueAt,
+            overdue: status.overdue,
+            installedAt: status.installedAt,
+          }
+        : null;
+    })
+    .filter(Boolean);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    since: since || null,
+    items: open.map((i) => ({
+      id: i.id,
+      type: i.type,
+      title: i.title,
+      notes: i.notes,
+      dueAt: i.dueAt,
+      status: i.status,
+      amount: i.amount,
+      assignee: i.assignee,
+      shoppingLines:
+        i.type === "shopping" ? JSON.parse(i.shoppingLines || "[]") : undefined,
+      updatedAt: i.updatedAt,
+    })),
+    completed: recentlyDone.map((i) => ({
+      id: i.id,
+      type: i.type,
+      title: i.title,
+      dueAt: i.dueAt,
+      status: i.status,
+      doneAt: i.doneAt,
+    })),
+    trackerAlerts: trackers,
+  };
+}
+
 export function listTrackers() {
   const db = getDb();
   return db
