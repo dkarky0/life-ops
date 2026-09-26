@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { BottomNav } from "@/components/bottom-nav";
+import { SpeechGuard } from "@/components/speech-guard";
 
 export function AppFrame({
   children,
@@ -20,8 +21,10 @@ export function AppFrame({
       }
     >
       <AuthGate>
-        <div className="app-shell">{children}</div>
-        {hideNav ? null : <BottomNav />}
+        <SpeechGuard>
+          <div className="app-shell">{children}</div>
+          {hideNav ? null : <BottomNav />}
+        </SpeechGuard>
       </AuthGate>
     </Suspense>
   );

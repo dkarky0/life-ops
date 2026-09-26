@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AppFrame } from "@/components/app-frame";
 import { apiFetch } from "@/lib/client-api";
+import { cancelSpeech, speakText } from "@/lib/speech";
 
 type Msg = {
   id: string;
@@ -29,6 +30,9 @@ export default function AssistantPage() {
 
   useEffect(() => {
     load();
+    return () => {
+      cancelSpeech();
+    };
   }, []);
 
   useEffect(() => {
@@ -38,6 +42,7 @@ export default function AssistantPage() {
   async function send(value = text) {
     const trimmed = value.trim();
     if (!trimmed || busy) return;
+    cancelSpeech();
     setBusy(true);
     setError("");
     setText("");
@@ -50,9 +55,8 @@ export default function AssistantPage() {
     if (!data.ok && data.error) setError(data.error);
     await load();
     setBusy(false);
-    if (data.content && "speechSynthesis" in window) {
-      const utter = new SpeechSynthesisUtterance(data.content);
-      window.speechSynthesis.speak(utter);
+    if (data.content) {
+      speakText(data.content);
     }
   }
 
@@ -98,10 +102,22 @@ export default function AssistantPage() {
 
   return (
     <AppFrame>
-      <h1 className="brand" style={{ fontSize: "1.8rem", margin: 0 }}>
-        Assistant
-      </h1>
-      <p className="pill-muted">Shared household chat · voice supported</p>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+        <div>
+          <h1 className="brand" style={{ fontSize: "1.8rem", margin: 0 }}>
+            Assistant
+          </h1>
+          <p className="pill-muted">Shared household chat · voice supported</p>
+        </div>
+        <button
+          className="btn btn-ghost"
+          type="button"
+          style={{ padding: "0.4rem 0.65rem", fontSize: "0.85rem" }}
+          onClick={() => cancelSpeech()}
+        >
+          Stop voice
+        </button>
+      </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
         {chips.map((c) => (
