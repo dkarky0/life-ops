@@ -49,26 +49,26 @@ Or pick **OpenAI / Gemini / OpenRouter / Custom** in **Settings** after login.
 
 **Cursor API:** not supported — Cursor does not expose a public chat-completions API for apps like this.
 
-## Docker (Home Assistant host)
+## Home Assistant deploy (recommended)
 
-```bash
-docker compose up -d --build
-```
+**Architecture:** Life Ops runs as Docker on the HA host (Portainer preferred). Daily Panchang on your phone talks to the same HTTPS URL.
 
-Service listens on **43127**. Point Nginx Proxy Manager / HA ingress at it, e.g. `https://home.example/life-ops/` → `http://lifeops:43127`.
+Full guide: [`docs/HA_DEPLOY.md`](docs/HA_DEPLOY.md)
 
-Environment (compose or Portainer):
+Quick path:
+
+1. On the HA host (LAN): `docker compose up -d --build` (or Portainer stack from [`deploy/portainer-stack.yml`](deploy/portainer-stack.yml))
+2. Nginx Proxy Manager: `lifeops.dktech.co.in` → `http://192.168.1.8:43127`
+3. Panchang Base URL: `https://lifeops.dktech.co.in` · PIN: your household PIN
 
 | Variable | Purpose |
 |----------|---------|
-| `LIFEOPS_API_KEY` | OpenAI-compatible key |
+| `LIFEOPS_API_KEY` | OpenAI-compatible / Gemini key |
 | `LIFEOPS_MEMBER1_NAME` / `LIFEOPS_MEMBER1_PIN` | First member (defaults You / 1234) |
 | `LIFEOPS_MEMBER2_NAME` / `LIFEOPS_MEMBER2_PIN` | Second member (defaults Partner / 5678) |
-| `LIFEOPS_DATA_DIR` | SQLite folder (default `/data` in container) |
+| `LIFEOPS_BASE_PATH` | Only if you must serve under a path like `/life-ops` (rebuild required) |
 
-SQLite persists on the `lifeops-data` volume.
-
-**Note:** Member PIN env vars apply only on **first** database seed. Change PINs by resetting the volume or updating hashes later.
+SQLite persists on the `lifeops-data` volume. PIN env vars apply on **first** DB seed only.
 
 ## Android install
 

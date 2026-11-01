@@ -1,0 +1,46 @@
+# Portainer stack for Life Ops on Home Assistant host
+# Prefer subdomain: https://lifeops.dktech.co.in → host:43127
+#
+# In Portainer: Stacks → Add stack → Web editor → paste this.
+# Set env values in Portainer "Environment variables" UI (do not commit secrets).
+
+services:
+  lifeops:
+    build: .
+    image: lifeops:local
+    container_name: lifeops
+    ports:
+      - "43127:43127"
+    environment:
+      LIFEOPS_DATA_DIR: /data
+      LIFEOPS_COOKIE_SECURE: "true"
+      # Leave empty to configure AI later in Settings UI
+      LIFEOPS_API_KEY: ${LIFEOPS_API_KEY:-}
+      LIFEOPS_LLM_BASE_URL: ${LIFEOPS_LLM_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
+      LIFEOPS_LLM_MODEL: ${LIFEOPS_LLM_MODEL:-gemini-2.0-flash}
+      LIFEOPS_MEMBER1_NAME: ${LIFEOPS_MEMBER1_NAME:-You}
+      LIFEOPS_MEMBER1_PIN: ${LIFEOPS_MEMBER1_PIN:-1234}
+      LIFEOPS_MEMBER2_NAME: ${LIFEOPS_MEMBER2_NAME:-Partner}
+      LIFEOPS_MEMBER2_PIN: ${LIFEOPS_MEMBER2_PIN:-5678}
+      # Only if reverse-proxy path is /life-ops (rebuild required). Prefer subdomain instead.
+      LIFEOPS_BASE_PATH: ${LIFEOPS_BASE_PATH:-}
+      PORT: "43127"
+      HOSTNAME: "0.0.0.0"
+    volumes:
+      - lifeops-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:43127/api/auth').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  lifeops-data:

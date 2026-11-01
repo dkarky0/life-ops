@@ -20,7 +20,9 @@ We need to integrate this Daily Panchang Android app with our household Life Ops
 Panchang keeps religious calendar data. Life Ops owns tasks/shopping/reminders.
 
 ## Life Ops sync API (already implemented)
-Base URL will be configured in app settings, e.g. https://<ha-host>/life-ops or http://LAN-IP:43127
+Base URL will be configured in app settings, preferably a subdomain on the HA host:
+e.g. https://lifeops.dktech.co.in  (Nginx Proxy Manager → host:43127)
+LAN fallback while testing: http://192.168.1.8:43127
 
 ### Auth
 1. GET /api/auth → list members
